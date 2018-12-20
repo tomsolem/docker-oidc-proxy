@@ -9,29 +9,16 @@ local opts = {
     iat_slack = 600,
 }
 
--- call authenticate for OpenID Connect user authentication
-local res, err, _target, session = require("resty.openidc").authenticate(opts)
+-- call bearer_jwt_verify for OAuth 2.0 JWT validation
+local res, err = require("resty.openidc").bearer_jwt_verify(opts)
 
 ngx.log(ngx.INFO, tostring(res))
 ngx.log(ngx.INFO, tostring(err))
 
-ngx.log(ngx.INFO,
-  "session.present=", session.present,
-  ", session.data.id_token=", session.data.id_token ~= nil,
-  ", session.data.authenticated=", session.data.authenticated,
-  ", opts.force_reauthorize=", opts.force_reauthorize,
-  ", opts.renew_access_token_on_expiry=", opts.renew_access_token_on_expiry,
-  ", try_to_renew=", try_to_renew,
-  ", token_expired=", token_expired
-)
+if err or not res then
+    ngx.status = 403
+    ngx.say(err and err or "no access_token provided")
+    ngx.exit(ngx.HTTP_FORBIDDEN)
+  end
 
-if err then
-    ngx.status = 500
-    ngx.header.content_type = 'text/html';
-
-    ngx.say("There was an error while logging in: " .. err)
-    ngx.exit(ngx.HTTP_INTERNAL_SERVER_ERROR)
-end
-
-ngx.log(ngx.INFO, "Authentication successful, setting Auth header...")
-ngx.req.set_header("Authorization", "Bearer "..session.data.enc_id_token)
+ngx.log(ngx.INFO, "Authentication successful")
